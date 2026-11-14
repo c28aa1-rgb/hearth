@@ -113,6 +113,23 @@ export interface ModSearchResult {
   total: number
 }
 
+export interface ModDetails {
+  projectId: string
+  slug: string
+  title: string
+  description: string
+  /** Markdown (may contain HTML) written by the mod's authors. */
+  body: string
+  iconUrl?: string
+  author?: string
+  downloads: number
+  followers: number
+  updated: string
+  license?: string
+  categories: string[]
+  links: { label: string; url: string }[]
+}
+
 export interface ModUpdate {
   projectId: string
   versionId: string
@@ -161,6 +178,7 @@ export interface HearthApi {
   }
   mods: {
     search(instanceId: string, query: string, offset: number): Promise<ModSearchResult>
+    details(projectId: string): Promise<ModDetails>
     install(instanceId: string, projectId: string): Promise<InstanceView>
     remove(instanceId: string, projectId: string): Promise<InstanceView>
     setEnabled(instanceId: string, projectId: string, enabled: boolean): Promise<InstanceView>

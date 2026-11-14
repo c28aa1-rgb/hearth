@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect } from 'react'
+import { ChevronDown, Maximize2, Minimize2 } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import type { InstanceView } from '@shared/types'
 import { relativeTime } from '../lib/format'
 import { api } from '../lib/api'
@@ -17,9 +18,33 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'logs', label: 'Logs' }
 ]
 
+/** Room left above an expanded sheet: the title strip that holds the window controls. */
+const TITLE_STRIP = 52
+/** Tab bar plus the two hairlines around it. */
+const TAB_BAR = 44
+
+function useHeight(ref: RefObject<HTMLElement | null>): number {
+  const [height, setHeight] = useState(() => window.innerHeight)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new ResizeObserver(() => setHeight(el.clientHeight))
+    observer.observe(el)
+    setHeight(el.clientHeight)
+    return () => observer.disconnect()
+  }, [ref])
+  return height
+}
+
 export function Stage({ instance }: { instance: InstanceView }) {
   const tab = useStore((s) => s.tab)
   const setTab = useStore((s) => s.setTab)
+  const sheetFull = useStore((s) => s.sheetFull)
+  const setSheetFull = useStore((s) => s.setSheetFull)
+  const stageRef = useRef<HTMLElement>(null)
+  const stageHeight = useHeight(stageRef)
+  const full = tab !== null && sheetFull
+  const sheetHeight = full ? Math.max(stageHeight - TITLE_STRIP - TAB_BAR, 200) : Math.min(stageHeight * 0.54, 500)
   const runState = useStore((s) => s.runStates[instance.id])
   const updates = useStore((s) => s.updates[instance.id])
   const checkUpdates = useStore((s) => s.checkUpdates)
@@ -37,12 +62,32 @@ export function Stage({ instance }: { instance: InstanceView }) {
   const played = relativeTime(instance.lastPlayedAt)
 
   return (
-    <main className="stage">
+    <main className="stage" ref={stageRef}>
       <Backdrop id={instance.id} url={instance.backdropUrl} raised={tab !== null} />
       <div className="scrim" aria-hidden />
-      <div className="stage-titlebar drag" />
+      <div className="stage-titlebar drag">
+        <AnimatePresence>
+          {full && (
+            <motion.div
+              className="compact-title"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0, transition: { ...quick, delay: 0.1 } }}
+              exit={{ opacity: 0, transition: { duration: 0.1 } }}
+            >
+              <span className="compact-name">{instance.name}</span>
+              <span className="muted">{meta}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-      <section className="hero">
+      <motion.section
+        className="hero"
+        animate={{ opacity: full ? 0 : 1 }}
+        transition={full ? { duration: 0.12 } : { ...quick, delay: 0.15 }}
+        style={{ pointerEvents: full ? 'none' : undefined }}
+        aria-hidden={full || undefined}
+      >
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={instance.id}
@@ -64,10 +109,14 @@ export function Stage({ instance }: { instance: InstanceView }) {
           onPlay={() => void attempt(() => api.launch.start(instance.id))}
           onStop={() => void attempt(() => api.launch.stop(instance.id))}
         />
-      </section>
+      </motion.section>
 
       <motion.div className="sheet-wrap" layout transition={spring}>
-        <nav className="tabs" aria-label="Instance sections">
+        <nav
+          className="tabs"
+          aria-label="Instance sections"
+          onDoubleClick={(e) => { if (tab && e.target === e.currentTarget) setSheetFull(!sheetFull) }}
+        >
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -81,6 +130,28 @@ export function Stage({ instance }: { instance: InstanceView }) {
               {tab === t.id && <motion.span layoutId="tab-underline" className="tab-underline" transition={spring} />}
             </button>
           ))}
+          <AnimatePresence>
+            {tab && (
+              <motion.div
+                className="sheet-controls"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: quick }}
+                exit={{ opacity: 0, transition: { duration: 0.1 } }}
+              >
+                <button
+                  className="btn quiet icon"
+                  onClick={() => setSheetFull(!sheetFull)}
+                  aria-label={sheetFull ? 'Restore panel size' : 'Expand panel'}
+                  title={sheetFull ? 'Restore' : 'Expand'}
+                >
+                  {sheetFull ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                </button>
+                <button className="btn quiet icon" onClick={() => setTab(null)} aria-label="Minimize panel" title="Minimize">
+                  <ChevronDown size={16} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </nav>
         <AnimatePresence initial={false}>
           {tab && (
@@ -88,7 +159,7 @@ export function Stage({ instance }: { instance: InstanceView }) {
               key="sheet"
               className="sheet"
               initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'min(54vh, 500px)', opacity: 1 }}
+              animate={{ height: sheetHeight, opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={spring}
             >

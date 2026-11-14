@@ -15,7 +15,7 @@ const names = [
   'instances.list', 'instances.create', 'instances.update', 'instances.clone', 'instances.remove',
   'instances.openFolder', 'instances.pickImage',
   'launch.start', 'launch.stop', 'launch.states', 'launch.logs',
-  'mods.search', 'mods.install', 'mods.remove', 'mods.setEnabled', 'mods.checkUpdates', 'mods.update',
+  'mods.search', 'mods.details', 'mods.install', 'mods.remove', 'mods.setEnabled', 'mods.checkUpdates', 'mods.update',
   'accounts.list', 'accounts.signInMicrosoft', 'accounts.remove',
   'settings.get', 'settings.set'
 ]

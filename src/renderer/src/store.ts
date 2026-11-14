@@ -17,12 +17,15 @@ interface State {
   accounts: Account[]
   updates: Record<string, ModUpdate[]>
   tab: Tab | null
+  /** How much of the stage the open tab's sheet covers. */
+  sheetFull: boolean
   newDialog: boolean
   toast?: Toast
 
   init(): Promise<void>
   select(id: string): void
   setTab(tab: Tab | null): void
+  setSheetFull(full: boolean): void
   setNewDialog(open: boolean): void
   upsertInstance(view: InstanceView): void
   refreshInstances(): Promise<void>
@@ -46,6 +49,7 @@ export const useStore = create<State>((set, get) => ({
   accounts: [],
   updates: {},
   tab: null,
+  sheetFull: false,
   newDialog: false,
 
   async init() {
@@ -81,7 +85,11 @@ export const useStore = create<State>((set, get) => ({
     set({ selectedId: id })
   },
   setTab(tab) {
-    set({ tab })
+    // Closing the sheet forgets the expanded size, so it reopens at its usual height.
+    set(tab ? { tab } : { tab, sheetFull: false })
+  },
+  setSheetFull(sheetFull) {
+    set({ sheetFull })
   },
   setNewDialog(open) {
     set({ newDialog: open })
@@ -107,7 +115,7 @@ export const useStore = create<State>((set, get) => ({
       const index = s.instances.findIndex((i) => i.id === id)
       const instances = s.instances.filter((i) => i.id !== id)
       const next = instances[Math.min(index, instances.length - 1)]
-      return { instances, selectedId: next?.id, tab: null }
+      return { instances, selectedId: next?.id, tab: null, sheetFull: false }
     })
   },
   async refreshAccounts() {

@@ -1,4 +1,4 @@
-import type { ModSearchResult } from '@shared/types'
+import type { ModDetails, ModSearchResult } from '@shared/types'
 import { getJson, postJson } from './http'
 
 const API = 'https://api.modrinth.com/v2'
@@ -152,6 +152,54 @@ export async function searchMods(query: string, mcVersion: string, loader: strin
       iconUrl: h.icon_url ?? undefined,
       downloads: h.downloads
     }))
+  }
+}
+
+interface ProjectFull extends MrProject {
+  description: string
+  body: string
+  downloads: number
+  followers: number
+  updated: string
+  categories: string[]
+  license?: { id: string; name?: string } | null
+  source_url?: string | null
+  issues_url?: string | null
+  wiki_url?: string | null
+  discord_url?: string | null
+}
+
+interface TeamMember { role: string; user: { username: string }; ordering?: number }
+
+/** Everything the details view shows for one project. */
+export async function modDetails(projectId: string): Promise<ModDetails> {
+  const id = encodeURIComponent(projectId)
+  const [p, members] = await Promise.all([
+    getJson<ProjectFull>(`${API}/project/${id}`),
+    getJson<TeamMember[]>(`${API}/project/${id}/members`).catch(() => [] as TeamMember[])
+  ])
+  const owner = members.find((m) => m.role === 'Owner') ?? [...members].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0))[0]
+  const links = [
+    { label: 'Modrinth page', url: `https://modrinth.com/mod/${p.slug}` },
+    { label: 'Source code', url: p.source_url },
+    { label: 'Issues', url: p.issues_url },
+    { label: 'Wiki', url: p.wiki_url },
+    { label: 'Discord', url: p.discord_url }
+  ].filter((l): l is { label: string; url: string } => !!l.url && l.url.startsWith('https://'))
+  return {
+    projectId: p.id,
+    slug: p.slug,
+    title: p.title,
+    description: p.description,
+    body: p.body,
+    iconUrl: p.icon_url ?? undefined,
+    author: owner?.user.username,
+    downloads: p.downloads,
+    followers: p.followers,
+    updated: p.updated,
+    license: p.license && p.license.id !== 'LicenseRef-Unknown' ? (p.license.name || p.license.id.replace(/^LicenseRef-/, '').replace(/-/g, ' ')) : undefined,
+    categories: p.categories.filter((c) => c !== 'fabric' && c !== 'quilt' && c !== 'forge' && c !== 'neoforge'),
+    links
   }
 }
 

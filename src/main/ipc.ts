@@ -9,7 +9,7 @@ import {
 } from './core/instances'
 import { runner } from './core/launch'
 import { applyModUpdates, checkModUpdates, installMod, removeMod, setModEnabled } from './core/mods'
-import { searchMods } from './core/modrinth'
+import { modDetails, searchMods } from './core/modrinth'
 import { getManifest, supportedVersions } from './core/mojang'
 import { getSettings, setSettings } from './core/settings'
 import { paths } from './paths'
@@ -80,6 +80,7 @@ export function registerIpc(getWindow: () => BrowserWindow | undefined) {
       const inst = await readInstance(id)
       return searchMods(query, inst.mcVersion, 'fabric', offset)
     },
+    'mods.details': modDetails,
     'mods.install': async (id: string, projectId: string) => toView(await installMod(id, projectId)),
     'mods.remove': async (id: string, projectId: string) => toView(await removeMod(id, projectId)),
     'mods.setEnabled': async (id: string, projectId: string, enabled: boolean) =>
