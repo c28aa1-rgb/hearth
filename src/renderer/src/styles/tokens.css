@@ -1,0 +1,39 @@
+:root {
+  /* Colour: warm brown-blacks, one amber accent. */
+  --hearthstone: #1b1612;
+  --soot: #241d18;
+  --soot-glass: rgba(36, 29, 24, 0.74);
+  --ash: #322923;
+  --ash-hover: #3c322b;
+  --line: rgba(238, 229, 216, 0.08);
+  --line-strong: rgba(238, 229, 216, 0.14);
+  --bone: #eee5d8;
+  --cinder: #a3958a;
+  --cinder-dim: #7a6e65;
+  --ember: #f0913a;
+  --ember-hot: #ffc27a;
+  --ember-ink: #2b1607;
+  --redstone: #e25b45;
+  --moss: #93b36d;
+
+  /* Type */
+  --font-ui: 'Geist Variable', -apple-system, system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', Georgia, serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+
+  /* Shape: radius follows hierarchy. */
+  --r-sheet: 14px;
+  --r-panel: 10px;
+  --r-row: 8px;
+
+  --sidebar-w: 232px;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-slow: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-quick: 140ms;
+  --t-standard: 280ms;
+}

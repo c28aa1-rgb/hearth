@@ -1,0 +1,167 @@
+import type { ModSearchResult } from '@shared/types'
+import { getJson, postJson } from './http'
+
+const API = 'https://api.modrinth.com/v2'
+
+export interface MrFile {
+  url: string
+  filename: string
+  primary: boolean
+  size: number
+  hashes: { sha1: string; sha512?: string }
+}
+
+export interface MrDependency {
+  version_id?: string | null
+  project_id?: string | null
+  dependency_type: 'required' | 'optional' | 'incompatible' | 'embedded'
+}
+
+export interface MrVersion {
+  id: string
+  project_id: string
+  version_number: string
+  version_type: 'release' | 'beta' | 'alpha'
+  files: MrFile[]
+  dependencies: MrDependency[]
+}
+
+export interface MrProject {
+  id: string
+  slug: string
+  title: string
+  icon_url?: string | null
+}
+
+export function primaryFile(version: MrVersion): MrFile {
+  const file = version.files.find((f) => f.primary) ?? version.files[0]
+  if (!file) throw new Error(`Modrinth version ${version.id} has no files.`)
+  return file
+}
+
+/** What dependency resolution needs from Modrinth. Injected so it can be tested offline. */
+export interface ModSource {
+  /** Best version of a project for this game version + loader, or undefined if none. */
+  compatibleVersion(projectIdOrSlug: string): Promise<MrVersion | undefined>
+  version(versionId: string): Promise<MrVersion>
+  projectTitle(projectId: string): Promise<string>
+}
+
+export class NoCompatibleVersionError extends Error {}
+
+/**
+ * The versions to install for `projectIdOrSlug`: the mod itself plus every required
+ * dependency that isn't installed yet. Breadth-first; each project appears once.
+ */
+export async function resolveInstall(
+  projectIdOrSlug: string,
+  source: ModSource,
+  installed: ReadonlySet<string>
+): Promise<MrVersion[]> {
+  const result: MrVersion[] = []
+  const seen = new Set(installed)
+  // neededBy = project id of the mod that requires this one (undefined for the mod the user picked)
+  const queue: { project?: string; version?: string; neededBy?: string }[] = [{ project: projectIdOrSlug }]
+  while (queue.length) {
+    const item = queue.shift()!
+    const version = item.version
+      ? await source.version(item.version)
+      : await source.compatibleVersion(item.project!)
+    if (!version) {
+      const title = await source.projectTitle(item.project!).catch(() => item.project!)
+      if (!item.neededBy) throw new NoCompatibleVersionError(`${title} has no version for this Minecraft version and loader.`)
+      const parent = await source.projectTitle(item.neededBy).catch(() => 'A mod')
+      throw new NoCompatibleVersionError(`${parent} needs ${title}, which has no version for this Minecraft version.`)
+    }
+    if (item.neededBy && seen.has(version.project_id)) continue
+    seen.add(version.project_id)
+    result.push(version)
+    for (const dep of version.dependencies) {
+      if (dep.dependency_type !== 'required') continue
+      if (dep.project_id && seen.has(dep.project_id)) continue
+      if (!dep.project_id && !dep.version_id) continue
+      queue.push(
+        dep.project_id
+          ? { project: dep.project_id, neededBy: version.project_id }
+          : { version: dep.version_id!, neededBy: version.project_id }
+      )
+    }
+  }
+  return result
+}
+
+export function modrinthSource(mcVersion: string, loader: string): ModSource & { projects(ids: string[]): Promise<MrProject[]> } {
+  const titles = new Map<string, string>()
+  return {
+    async compatibleVersion(project) {
+      const q = new URLSearchParams({
+        loaders: JSON.stringify([loader]),
+        game_versions: JSON.stringify([mcVersion])
+      })
+      const versions = await getJson<MrVersion[]>(`${API}/project/${encodeURIComponent(project)}/version?${q}`)
+      return versions.find((v) => v.version_type === 'release') ?? versions[0]
+    },
+    version(id) {
+      return getJson<MrVersion>(`${API}/version/${encodeURIComponent(id)}`)
+    },
+    async projectTitle(id) {
+      if (!titles.has(id)) {
+        const p = await getJson<MrProject>(`${API}/project/${encodeURIComponent(id)}`)
+        titles.set(id, p.title)
+      }
+      return titles.get(id)!
+    },
+    async projects(ids) {
+      if (!ids.length) return []
+      return getJson<MrProject[]>(`${API}/projects?ids=${encodeURIComponent(JSON.stringify(ids))}`)
+    }
+  }
+}
+
+interface SearchResponse {
+  hits: {
+    project_id: string
+    slug: string
+    title: string
+    description: string
+    author: string
+    icon_url?: string | null
+    downloads: number
+  }[]
+  total_hits: number
+}
+
+export async function searchMods(query: string, mcVersion: string, loader: string, offset: number): Promise<ModSearchResult> {
+  const facets = [['project_type:mod'], [`categories:${loader}`], [`versions:${mcVersion}`]]
+  const q = new URLSearchParams({
+    query,
+    facets: JSON.stringify(facets),
+    limit: '20',
+    offset: String(offset),
+    index: query.trim() ? 'relevance' : 'downloads'
+  })
+  const res = await getJson<SearchResponse>(`${API}/search?${q}`)
+  return {
+    total: res.total_hits,
+    hits: res.hits.map((h) => ({
+      projectId: h.project_id,
+      slug: h.slug,
+      title: h.title,
+      description: h.description,
+      author: h.author,
+      iconUrl: h.icon_url ?? undefined,
+      downloads: h.downloads
+    }))
+  }
+}
+
+/** Newest compatible version for each file hash. */
+export async function latestVersions(sha1s: string[], mcVersion: string, loader: string): Promise<Record<string, MrVersion>> {
+  if (!sha1s.length) return {}
+  return postJson<Record<string, MrVersion>>(`${API}/version_files/update`, {
+    hashes: sha1s,
+    algorithm: 'sha1',
+    loaders: [loader],
+    game_versions: [mcVersion]
+  })
+}

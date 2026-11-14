@@ -1,0 +1,143 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  /* Transparent so macOS vibrancy shows through the sidebar. */
+  background: transparent;
+  color: var(--bone);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+button, input, select { font: inherit; color: inherit; }
+button { cursor: default; }
+img { display: block; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 2px;
+}
+
+::selection { background: rgba(240, 145, 58, 0.35); }
+
+.drag { -webkit-app-region: drag; }
+.no-drag { -webkit-app-region: no-drag; }
+
+/* Scrollbars that match the warm darks. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(238, 229, 216, 0.12);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: rgba(238, 229, 216, 0.2); }
+
+/* ---------- Shared controls ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-row);
+  border: 1px solid var(--line-strong);
+  background: var(--ash);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--t-quick) var(--ease-standard), transform var(--t-quick) var(--ease-standard);
+}
+.btn:hover:not(:disabled) { background: var(--ash-hover); }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled { opacity: 0.45; }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--cinder); }
+.btn.quiet:hover:not(:disabled) { background: rgba(238, 229, 216, 0.06); color: var(--bone); }
+.btn.accent { background: var(--ember); border-color: transparent; color: var(--ember-ink); }
+.btn.accent:hover:not(:disabled) { background: #f6a056; }
+.btn.danger { color: var(--redstone); }
+.btn.icon { width: 32px; padding: 0; justify-content: center; }
+
+.input {
+  height: 34px;
+  width: 100%;
+  padding: 0 11px;
+  border-radius: var(--r-row);
+  border: 1px solid var(--line-strong);
+  background: rgba(0, 0, 0, 0.22);
+  font-size: var(--text-sm);
+  user-select: text;
+  transition: border-color var(--t-quick) var(--ease-standard);
+}
+.input::placeholder { color: var(--cinder-dim); }
+.input:focus { border-color: rgba(240, 145, 58, 0.6); }
+
+.segmented {
+  position: relative;
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+}
+.segmented button {
+  position: relative;
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--cinder);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: color var(--t-quick) var(--ease-standard);
+}
+.segmented button[aria-pressed='true'] { color: var(--bone); }
+.segmented .seg-pill {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: var(--ash-hover);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+.segmented button span { position: relative; }
+
+.switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  flex: none;
+  border-radius: 20px;
+  border: 0;
+  background: rgba(238, 229, 216, 0.14);
+  transition: background var(--t-quick) var(--ease-standard);
+}
+.switch[aria-checked='true'] { background: var(--ember); }
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bone);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.muted { color: var(--cinder); }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
