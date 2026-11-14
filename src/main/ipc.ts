@@ -52,6 +52,8 @@ export function registerIpc(getWindow: () => BrowserWindow | undefined) {
         // Fabric API is a regular mod the user can remove. A failure here shouldn't block creation.
         await installMod(inst.id, FABRIC_API).catch(() => undefined)
       }
+      // Download the game in the background now, so the first Play starts right away.
+      void runner.install(inst.id)
       return view(inst.id)
     },
     'instances.update': async (id: string, patch: object) => toView(await updateInstance(id, patch)),

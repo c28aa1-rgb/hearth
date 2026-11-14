@@ -88,6 +88,8 @@ export interface RunState {
   progress?: LaunchProgress
   error?: string
   exitCode?: number | null
+  /** Set when a background download finished: the instance can now start without downloading. */
+  ready?: boolean
 }
 
 export type LogLevel = 'info' | 'warn' | 'error'

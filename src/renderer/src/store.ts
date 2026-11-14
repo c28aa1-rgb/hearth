@@ -64,6 +64,10 @@ export const useStore = create<State>((set, get) => ({
       if (event.type === 'run-state') {
         set((s) => ({ runStates: { ...s.runStates, [event.state.instanceId]: event.state } }))
         if (event.state.error) get().notify(event.state.error)
+        else if (event.state.ready) {
+          const name = get().instances.find((i) => i.id === event.state.instanceId)?.name
+          if (name) get().notify(`${name} is downloaded and ready to play.`, 'info')
+        }
       } else if (event.type === 'log') {
         set((s) => {
           const logs = { ...s.logs }

@@ -13,8 +13,9 @@ import { readInstance, systemMemoryMb, writeInstance } from './instances'
 import { ensureJava } from './java'
 import { autoMemoryMb } from './memory'
 import { syncMods } from './mods'
-import { assetTasks, clientJarTask, getVersionJson, mergeVersions, resolveLibraries } from './mojang'
+import { assetTasks, clientJarTask, getVersionJson, mergeVersions, resolveLibraries, type VersionJson } from './mojang'
 import { MAC_ARM64 } from './rules'
+import type { Instance } from '@shared/types'
 
 const MAX_LOG_LINES = 5000
 
@@ -24,7 +25,17 @@ interface Events {
   exited: [{ instanceId: string; crashed: boolean }]
 }
 
+/** Everything a launch needs that lives in the shared store. */
+interface Prepared {
+  version: VersionJson
+  java: string
+  classpath: string[]
+}
+
 class Runner extends EventEmitter<Events> {
+  /** Downloads in flight, shared by "download on create" and Play. */
+  private prepares = new Map<string, Promise<Prepared>>()
+  private launching = new Set<string>()
   private states = new Map<string, RunState>()
   private logs = new Map<string, LogLine[]>()
   private procs = new Map<string, ChildProcess>()
@@ -65,37 +76,70 @@ class Runner extends EventEmitter<Events> {
     }, 80)
   }
 
-  async start(id: string): Promise<void> {
-    const current = this.states.get(id)?.status
-    if (current === 'installing' || current === 'running') return
-    this.logs.set(id, [])
-    const progress = (phase: LaunchPhase, label: string, done = 0, total = 0) =>
-      this.set({ instanceId: id, status: 'installing', progress: { phase, label, done, total } })
+  private progress(id: string, phase: LaunchPhase, label: string, done = 0, total = 0) {
+    this.set({ instanceId: id, status: 'installing', progress: { phase, label, done, total } })
+  }
+
+  /** Java, the game, libraries and assets for an instance. Only touches the shared store. */
+  private async download(id: string, inst: Instance): Promise<Prepared> {
+    this.progress(id, 'preparing', 'Getting ready')
+    const vanilla = await getVersionJson(paths.versions, inst.mcVersion)
+    let version = vanilla
+    if (inst.loader === 'fabric') {
+      const loader = inst.loaderVersion ?? (await latestFabricLoader(inst.mcVersion))
+      version = mergeVersions(vanilla, await fabricProfile(paths.versions, inst.mcVersion, loader))
+    }
+
+    const component = vanilla.javaVersion?.component ?? 'java-runtime-gamma'
+    const java = await ensureJava(paths.java, component, (d, t) => this.progress(id, 'java', 'Downloading Java', d, t))
+
+    const libs = resolveLibraries(version, paths.libraries, MAC_ARM64)
+    const client = clientJarTask(vanilla, paths.versions, inst.mcVersion)
+    await downloadAll([client, ...libs.tasks], (d, t) => this.progress(id, 'game', 'Downloading Minecraft', d, t))
+    await downloadAll(await assetTasks(vanilla, paths.assets), (d, t) => this.progress(id, 'assets', 'Downloading assets', d, t))
+    return { version, java, classpath: [...libs.classpath, client.path] }
+  }
+
+  private prepare(id: string, inst: Instance): Promise<Prepared> {
+    let pending = this.prepares.get(id)
+    if (!pending) {
+      pending = this.download(id, inst).finally(() => this.prepares.delete(id))
+      this.prepares.set(id, pending)
+    }
+    return pending
+  }
+
+  /** Download everything an instance needs without starting it (used right after creation). */
+  async install(id: string): Promise<void> {
+    if (this.prepares.has(id) || this.launching.has(id) || this.procs.has(id)) return
     try {
-      progress('preparing', 'Getting ready')
+      await this.prepare(id, await readInstance(id))
+      if (!this.launching.has(id)) this.set({ instanceId: id, status: 'idle', ready: true })
+    } catch (err) {
+      if (this.launching.has(id)) return // Play is waiting on this download and reports the error itself.
+      const message = err instanceof Error ? err.message : String(err)
+      this.log(id, `Download failed: ${message}`, 'error')
+      this.set({ instanceId: id, status: 'idle', error: `Download failed: ${message}. Press Play to try again.` })
+    }
+  }
+
+  async start(id: string): Promise<void> {
+    if (this.launching.has(id) || this.procs.has(id)) return
+    this.launching.add(id)
+    this.logs.set(id, [])
+    try {
+      const prepared = await this.prepare(id, await readInstance(id))
+      // Re-read: mods or settings may have changed while files were downloading.
       let inst = await readInstance(id)
-      const vanilla = await getVersionJson(paths.versions, inst.mcVersion)
-      let version = vanilla
-      if (inst.loader === 'fabric') {
-        const loader = inst.loaderVersion ?? (await latestFabricLoader(inst.mcVersion))
-        version = mergeVersions(vanilla, await fabricProfile(paths.versions, inst.mcVersion, loader))
-      }
+      const { version, java, classpath } = prepared
 
-      const component = vanilla.javaVersion?.component ?? 'java-runtime-gamma'
-      const java = await ensureJava(paths.java, component, (d, t) => progress('java', 'Downloading Java', d, t))
-
-      const libs = resolveLibraries(version, paths.libraries, MAC_ARM64)
-      const client = clientJarTask(vanilla, paths.versions, inst.mcVersion)
-      await downloadAll([client, ...libs.tasks], (d, t) => progress('game', 'Downloading Minecraft', d, t))
-      await downloadAll(await assetTasks(vanilla, paths.assets), (d, t) => progress('assets', 'Downloading assets', d, t))
-
-      progress('mods', 'Checking mods')
+      this.progress(id, 'mods', 'Checking mods')
       await syncMods(inst)
 
-      progress('account', 'Signing in')
+      this.progress(id, 'account', 'Signing in')
       const player = await launchIdentity()
 
-      progress('starting', 'Starting Minecraft')
+      this.progress(id, 'starting', 'Starting Minecraft')
       const gameDir = paths.gameDir(id)
       const nativesDir = join(paths.natives, version.id)
       await mkdir(gameDir, { recursive: true })
@@ -103,7 +147,7 @@ class Runner extends EventEmitter<Events> {
       const modCount = inst.loader === 'fabric' ? inst.mods.filter((m) => m.enabled).length : 0
       const args = buildLaunchArgs(version, {
         javaPath: java,
-        classpath: [...libs.classpath, client.path],
+        classpath,
         gameDir,
         assetsDir: paths.assets,
         librariesDir: paths.libraries,
@@ -145,6 +189,8 @@ class Runner extends EventEmitter<Events> {
       const message = err instanceof Error ? err.message : String(err)
       this.log(id, `Launch failed: ${message}`, 'error')
       this.set({ instanceId: id, status: 'idle', error: message })
+    } finally {
+      this.launching.delete(id)
     }
   }
 
