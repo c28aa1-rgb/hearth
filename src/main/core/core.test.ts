@@ -81,7 +81,7 @@ describe('versions', () => {
   })
   it('resolves only Mac libraries, including maven-style ones', () => {
     const { tasks, classpath } = resolveLibraries(mergeVersions(vanilla, fabric), '/lib', MAC_ARM64)
-    expect(classpath).toEqual(['/lib/org/ow2/asm/asm/9.7/asm-9.7.jar', '/lib/l.jar'])
+    expect(classpath.map((p) => p.replace(/\\/g, '/'))).toEqual(['/lib/org/ow2/asm/asm/9.7/asm-9.7.jar', '/lib/l.jar'])
     expect(tasks[0].url).toBe('https://maven.fabricmc.net/org/ow2/asm/asm/9.7/asm-9.7.jar')
   })
   it('lists versions from 1.19 onwards', () => {

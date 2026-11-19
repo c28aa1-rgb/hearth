@@ -21,7 +21,7 @@ describe('platforms', () => {
     expect(javaPlatformKey('win32', 'arm64')).toBe('windows-arm64')
     expect(javaPlatformKey('darwin', 'arm64')).toBe('mac-os-arm64')
     expect(javaBinaryIn('/j', 'win32').replace(/\\/g, '/')).toBe('/j/bin/java.exe')
-    expect(javaBinaryIn('/j', 'darwin')).toBe('/j/jre.bundle/Contents/Home/bin/java')
+    expect(javaBinaryIn('/j', 'darwin').replace(/\\/g, '/')).toBe('/j/jre.bundle/Contents/Home/bin/java')
   })
   it('joins the classpath with the platform separator', () => {
     const v: VersionJson = { id: 'x', mainClass: 'M', libraries: [], arguments: { jvm: ['-cp', '${classpath}'] } }
