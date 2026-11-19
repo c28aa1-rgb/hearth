@@ -1,3 +1,5 @@
+import type { Loader } from '@shared/types'
+
 export function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`
@@ -9,8 +11,16 @@ export function formatMemory(mb: number): string {
   return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`
 }
 
-export function loaderLabel(loader: 'vanilla' | 'fabric'): string {
-  return loader === 'fabric' ? 'Fabric' : 'Vanilla'
+const LOADER_LABELS: Record<Loader, string> = {
+  vanilla: 'Vanilla',
+  fabric: 'Fabric',
+  quilt: 'Quilt',
+  forge: 'Forge',
+  neoforge: 'NeoForge'
+}
+
+export function loaderLabel(loader: Loader): string {
+  return LOADER_LABELS[loader]
 }
 
 export function relativeTime(ts?: number): string | undefined {

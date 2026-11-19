@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Loader, McVersion } from '@shared/types'
+import type { Loader, McVersion, ModLoader } from '@shared/types'
 import { api } from '../lib/api'
+import { loaderLabel } from '../lib/format'
 import { useStore } from '../store'
 import { Segmented, Spinner, Switch } from './controls'
 import { Dialog } from './Dialog'
+
+const LOADER_OPTIONS: Loader[] = ['fabric', 'quilt', 'neoforge', 'forge', 'vanilla']
 
 export function NewInstanceDialog() {
   const open = useStore((s) => s.newDialog)
@@ -21,7 +24,20 @@ export function NewInstanceDialog() {
   const [loader, setLoader] = useState<Loader>('fabric')
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
+  /** Loaders with a build for the selected version; null while checking (or if the check failed). */
+  const [available, setAvailable] = useState<ModLoader[] | null>(null)
   const showSnapshots = settings?.showSnapshots ?? false
+
+  useEffect(() => {
+    if (!open || !version) return
+    let live = true
+    setAvailable(null)
+    api.versions.loaders(version).then((l) => { if (live) setAvailable(l) }, () => undefined)
+    return () => { live = false }
+  }, [open, version])
+
+  const supported = (l: Loader) => l === 'vanilla' || available === null || available.includes(l)
+  const unsupported = !supported(loader)
 
   useEffect(() => {
     if (!open) return
@@ -80,8 +96,16 @@ export function NewInstanceDialog() {
             label="Loader"
             value={loader}
             onChange={setLoader}
-            options={[{ value: 'fabric', label: 'Fabric' }, { value: 'vanilla', label: 'No mods' }]}
+            options={LOADER_OPTIONS.map((l) => ({
+              value: l,
+              label: l === 'vanilla' ? 'No mods' : loaderLabel(l),
+              disabled: !supported(l),
+              title: supported(l) ? undefined : `${loaderLabel(l)} doesn't support ${version} yet`
+            }))}
           />
+          {unsupported && version && (
+            <p className="field-note">{loaderLabel(loader)} doesn’t support Minecraft {version} yet. Pick another loader or version.</p>
+          )}
         </div>
 
         <div className="field">
@@ -114,7 +138,7 @@ export function NewInstanceDialog() {
 
         <div className="dialog-actions">
           <button type="button" className="btn quiet" onClick={() => setOpen(false)} disabled={creating}>Cancel</button>
-          <button className="btn accent" disabled={!version || creating}>
+          <button className="btn accent" disabled={!version || creating || unsupported}>
             {creating && <Spinner />} {creating ? 'Creating' : 'Create instance'}
           </button>
         </div>

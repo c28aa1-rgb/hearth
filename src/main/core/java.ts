@@ -3,10 +3,10 @@ import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { downloadAll, type DownloadTask } from './download'
 import { getJson } from './http'
+import { javaBinaryIn, javaPlatformKey, platformName } from './platform'
 
 const RUNTIMES_URL =
   'https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json'
-const PLATFORM = 'mac-os-arm64'
 
 type RuntimeIndex = Record<string, Record<string, { manifest: { url: string; sha1: string }; version: { name: string } }[]>>
 
@@ -17,9 +17,9 @@ type RuntimeFile =
 
 interface RuntimeManifest { files: Record<string, RuntimeFile> }
 
-/** Where the `java` binary lives inside an installed Mojang runtime on macOS. */
+/** Where the `java` binary lives inside an installed Mojang runtime on this machine. */
 export function javaBinary(javaDir: string, component: string): string {
-  return join(javaDir, component, 'jre.bundle', 'Contents', 'Home', 'bin', 'java')
+  return javaBinaryIn(join(javaDir, component))
 }
 
 /**
@@ -36,10 +36,10 @@ export async function ensureJava(
   const binary = javaBinary(javaDir, component)
 
   const index = await getJson<RuntimeIndex>(RUNTIMES_URL).catch(() => undefined)
-  const entry = index?.[PLATFORM]?.[component]?.[0]
+  const entry = index?.[javaPlatformKey()]?.[component]?.[0]
   if (!entry) {
     if (existsSync(marker) && existsSync(binary)) return binary // offline, use what we have
-    throw new Error(`Mojang has no ${component} Java runtime for Apple Silicon.`)
+    throw new Error(`Mojang has no ${component} Java runtime for ${platformName()}.`)
   }
   const installed = existsSync(marker) ? (await readFile(marker, 'utf8')).trim() : ''
   if (installed === entry.manifest.sha1 && existsSync(binary)) return binary
@@ -59,7 +59,8 @@ export async function ensureJava(
   for (const [path, target] of links) {
     await mkdir(dirname(path), { recursive: true })
     await rm(path, { force: true })
-    await symlink(target, path)
+    // Windows needs extra rights for symlinks; its runtimes don't rely on them, so skip failures.
+    await symlink(target, path).catch((err: unknown) => { if (process.platform !== 'win32') throw err })
   }
   if (!existsSync(binary)) throw new Error(`Java installed, but ${binary} is missing.`)
   await writeFile(marker, entry.manifest.sha1)

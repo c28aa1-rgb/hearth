@@ -11,7 +11,7 @@ export interface RuleEnv {
   features: Record<string, boolean>
 }
 
-/** The machine Hearth runs on: an Apple Silicon Mac. */
+/** An Apple Silicon Mac (used by tests; the running machine is HOST in platform.ts). */
 export const MAC_ARM64: RuleEnv = {
   osName: 'osx',
   arch: 'arm64',

@@ -8,16 +8,24 @@ import { paths } from '../paths'
 import { buildLaunchArgs } from './args'
 import { classify } from './launch-classify'
 import { downloadAll } from './download'
-import { fabricProfile, latestFabricLoader } from './fabric'
+import { installerProfile, launchJarPath, LOADER_NAMES, metaProfile, requireLoaderVersion } from './loaders'
 import { readInstance, systemMemoryMb, writeInstance } from './instances'
 import { ensureJava } from './java'
 import { autoMemoryMb } from './memory'
 import { syncMods } from './mods'
 import { assetTasks, clientJarTask, getVersionJson, mergeVersions, resolveLibraries, type VersionJson } from './mojang'
-import { MAC_ARM64 } from './rules'
+import { CLASSPATH_SEPARATOR, HOST } from './platform'
 import type { Instance } from '@shared/types'
 
 const MAX_LOG_LINES = 5000
+
+// Java starts several seconds before the game window appears. The game counts as running
+// (and the launcher hides) once Minecraft starts loading resources, which happens right
+// after its window opens with the loading screen. If no such line ever shows up, it
+// counts as running after WINDOW_FALLBACK_MS anyway.
+const WINDOW_UP = /Reloading ResourceManager|Sound engine started/
+const WINDOW_PAINT_MS = 500
+const WINDOW_FALLBACK_MS = 60_000
 
 interface Events {
   state: [RunState]
@@ -80,24 +88,41 @@ class Runner extends EventEmitter<Events> {
     this.set({ instanceId: id, status: 'installing', progress: { phase, label, done, total } })
   }
 
-  /** Java, the game, libraries and assets for an instance. Only touches the shared store. */
+  /** Java, the game, its loader, libraries and assets for an instance. Only touches the shared store. */
   private async download(id: string, inst: Instance): Promise<Prepared> {
     this.progress(id, 'preparing', 'Getting ready')
     const vanilla = await getVersionJson(paths.versions, inst.mcVersion)
-    let version = vanilla
-    if (inst.loader === 'fabric') {
-      const loader = inst.loaderVersion ?? (await latestFabricLoader(inst.mcVersion))
-      version = mergeVersions(vanilla, await fabricProfile(paths.versions, inst.mcVersion, loader))
-    }
 
     const component = vanilla.javaVersion?.component ?? 'java-runtime-gamma'
     const java = await ensureJava(paths.java, component, (d, t) => this.progress(id, 'java', 'Downloading Java', d, t))
 
-    const libs = resolveLibraries(version, paths.libraries, MAC_ARM64)
+    // Vanilla first: the Forge and NeoForge installers build on the game jar.
     const client = clientJarTask(vanilla, paths.versions, inst.mcVersion)
-    await downloadAll([client, ...libs.tasks], (d, t) => this.progress(id, 'game', 'Downloading Minecraft', d, t))
+    const vanillaLibs = resolveLibraries(vanilla, paths.libraries, HOST)
+    await downloadAll([client, ...vanillaLibs.tasks], (d, t) => this.progress(id, 'game', 'Downloading Minecraft', d, t))
     await downloadAll(await assetTasks(vanilla, paths.assets), (d, t) => this.progress(id, 'assets', 'Downloading assets', d, t))
-    return { version, java, classpath: [...libs.classpath, client.path] }
+
+    let version = vanilla
+    if (inst.loader !== 'vanilla') {
+      const name = LOADER_NAMES[inst.loader]
+      const loaderVersion = inst.loaderVersion ?? (await requireLoaderVersion(inst.loader, inst.mcVersion))
+      this.progress(id, 'loader', `Installing ${name}`)
+      const profile = inst.loader === 'fabric' || inst.loader === 'quilt'
+        ? await metaProfile(paths.versions, inst.loader, inst.mcVersion, loaderVersion)
+        : await installerProfile(inst.loader, inst.mcVersion, loaderVersion, {
+          storeDir: paths.store,
+          versionsDir: paths.versions,
+          java,
+          onLine: (line) => this.log(id, line)
+        })
+      version = mergeVersions(vanilla, profile)
+      const libs = resolveLibraries(version, paths.libraries, HOST)
+      await downloadAll(libs.tasks, (d, t) => this.progress(id, 'loader', `Downloading ${name}`, d, t))
+    }
+
+    const libs = resolveLibraries(version, paths.libraries, HOST)
+    const jar = launchJarPath(inst.loader, paths.versions, inst.mcVersion, version.id)
+    return { version, java, classpath: [...libs.classpath, jar] }
   }
 
   private prepare(id: string, inst: Instance): Promise<Prepared> {
@@ -144,7 +169,7 @@ class Runner extends EventEmitter<Events> {
       const nativesDir = join(paths.natives, version.id)
       await mkdir(gameDir, { recursive: true })
       await mkdir(nativesDir, { recursive: true })
-      const modCount = inst.loader === 'fabric' ? inst.mods.filter((m) => m.enabled).length : 0
+      const modCount = inst.loader === 'vanilla' ? 0 : inst.mods.filter((m) => m.enabled).length
       const args = buildLaunchArgs(version, {
         javaPath: java,
         classpath,
@@ -155,21 +180,36 @@ class Runner extends EventEmitter<Events> {
         memoryMb: inst.memoryMb ?? autoMemoryMb(modCount, systemMemoryMb()),
         player,
         launcherName: 'hearth',
-        launcherVersion: '0.1.0'
-      }, MAC_ARM64)
+        launcherVersion: '0.1.0',
+        classpathSeparator: CLASSPATH_SEPARATOR
+      }, HOST)
 
-      const child = spawn(java, args, { cwd: gameDir, env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] })
+      const child = spawn(java, args, { cwd: gameDir, env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
       this.procs.set(id, child)
       inst = { ...inst, lastPlayedAt: Date.now() }
       await writeInstance(inst)
-      this.set({ instanceId: id, status: 'running' })
+      this.progress(id, 'starting', 'Opening the game window')
+
+      // Stay on the progress ring until the game window is up, then switch to running.
+      let windowUp = false
+      const markRunning = () => {
+        if (windowUp || this.procs.get(id) !== child) return
+        windowUp = true
+        clearTimeout(fallback)
+        this.set({ instanceId: id, status: 'running' })
+      }
+      const fallback = setTimeout(markRunning, WINDOW_FALLBACK_MS)
 
       let carry = { out: '', err: '' }
       const onData = (key: 'out' | 'err') => (chunk: Buffer) => {
         const text = carry[key] + chunk.toString('utf8')
         const lines = text.split(/\r?\n/)
         carry[key] = lines.pop() ?? ''
-        for (const l of lines) if (l.length) this.log(id, l)
+        for (const l of lines) {
+          if (!l.length) continue
+          this.log(id, l)
+          if (!windowUp && WINDOW_UP.test(l)) setTimeout(markRunning, WINDOW_PAINT_MS)
+        }
       }
       child.stdout!.on('data', onData('out'))
       child.stderr!.on('data', onData('err'))
@@ -177,6 +217,8 @@ class Runner extends EventEmitter<Events> {
       child.on('exit', (code, signal) => {
         if (carry.out) this.log(id, carry.out)
         if (carry.err) this.log(id, carry.err)
+        windowUp = true
+        clearTimeout(fallback)
         this.procs.delete(id)
         const stopped = this.stopping.delete(id)
         const crashed = !stopped && code !== 0

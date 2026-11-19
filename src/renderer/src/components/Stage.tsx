@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ChevronDown, Maximize2, Minimize2 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import type { InstanceView } from '@shared/types'
-import { relativeTime } from '../lib/format'
+import { loaderLabel, relativeTime } from '../lib/format'
 import { api } from '../lib/api'
 import { quick, spring } from '../lib/motion'
 import { useStore, type Tab } from '../store'
@@ -52,12 +52,12 @@ export function Stage({ instance }: { instance: InstanceView }) {
 
   // Check for mod updates whenever an instance is opened. Never installs anything.
   useEffect(() => {
-    if (instance.loader === 'fabric' && instance.mods.length) void checkUpdates(instance.id)
+    if (instance.loader !== 'vanilla' && instance.mods.length) void checkUpdates(instance.id)
   }, [instance.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const enabledMods = instance.mods.filter((m) => m.enabled).length
-  const meta = instance.loader === 'fabric'
-    ? `Minecraft ${instance.mcVersion} with Fabric, ${enabledMods} ${enabledMods === 1 ? 'mod' : 'mods'}`
+  const meta = instance.loader !== 'vanilla'
+    ? `Minecraft ${instance.mcVersion} with ${loaderLabel(instance.loader)}, ${enabledMods} ${enabledMods === 1 ? 'mod' : 'mods'}`
     : `Minecraft ${instance.mcVersion}`
   const played = relativeTime(instance.lastPlayedAt)
 

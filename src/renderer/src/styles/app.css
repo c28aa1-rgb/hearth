@@ -11,6 +11,14 @@
 .spinner { animation: spin 0.9s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- Windows frame ---------- */
+
+/* No vibrancy on Windows: the window paints its own warm background. */
+:root[data-platform='win32'] body { background: var(--hearthstone); }
+:root[data-platform='win32'] .sidebar { background: var(--soot); }
+/* Keep clear of the minimize / maximize / close buttons in the top-right corner. */
+:root[data-platform='win32'] .stage-titlebar { padding-right: 150px; }
+
 /* ---------- Sidebar (sits on macOS vibrancy) ---------- */
 
 .sidebar {
@@ -171,6 +179,7 @@ img.inst-icon { object-fit: cover; }
 .account-remove { opacity: 0; }
 .account-list li:hover .account-remove, .account-remove:focus-visible { opacity: 1; }
 .ms-btn { width: 100%; justify-content: center; }
+.field-note { margin: 2px 0 0; font-size: var(--text-xs); color: var(--cinder); }
 .menu-note { margin: 0; padding: 0 4px; font-size: var(--text-xs); color: var(--cinder); display: flex; gap: 6px; align-items: center; }
 .menu-divider { height: 1px; background: var(--line); margin: 2px 0; }
 .menu-setting {

@@ -103,7 +103,7 @@ describe('launch arguments', () => {
       javaPath: '/java', classpath: ['/a.jar', '/b.jar'], gameDir: '/g', assetsDir: '/as', librariesDir: '/lib',
       nativesDir: '/n', memoryMb: 4096,
       player: { name: 'Steve', uuid: 'u', accessToken: 't', userType: 'msa' },
-      launcherName: 'hearth', launcherVersion: '0.1.0'
+      launcherName: 'hearth', launcherVersion: '0.1.0', classpathSeparator: ':'
     }, MAC_ARM64)
     expect(args).toEqual([
       '-Xmx4096M', '-Xms1024M', '-XstartOnFirstThread', '-Djava.library.path=/n', '-cp', '/a.jar:/b.jar',

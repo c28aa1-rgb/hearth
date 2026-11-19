@@ -1,13 +1,14 @@
 # Hearth
 
-A small Minecraft: Java Edition launcher for Apple Silicon Macs. Hearth manages
-separate instances (each with its own version, mods and worlds) and installs Fabric mods
-from Modrinth.
+A small Minecraft: Java Edition launcher for macOS and Windows. Hearth manages separate
+instances (each with its own version, mods and worlds) and installs mods from Modrinth
+for Fabric, Quilt, NeoForge and Forge, along with the other mods they need.
 
 ## Run it
 
-You need [Node.js](https://nodejs.org) 22.12 or newer. Nothing else: Hearth downloads
-Java and Minecraft by itself.
+You need [Node.js](https://nodejs.org) 22.12 or newer (and [Git](https://git-scm.com) to
+clone the repo). Nothing else: Hearth downloads Java, Minecraft and the mod loaders by itself.
+The same commands work in Terminal on a Mac and in PowerShell on Windows.
 
 ```bash
 git clone https://github.com/c28aa1-rgb/hearth.git
@@ -22,9 +23,8 @@ reuses it.
 
 ## Signing in
 
-Hearth ships with its own Azure app ID, so "Sign in with Microsoft" works out of the box once
-Microsoft approves that app for the Minecraft API. Until then, sign-in fails with
-"Invalid app registration".
+Hearth ships with its own Azure app ID, approved by Microsoft for the Minecraft API, so
+"Sign in with Microsoft" works out of the box.
 
 To use your own Azure app instead (for a fork, say):
 
@@ -40,14 +40,26 @@ To use your own Azure app instead (for a fork, say):
 Hearth only launches the game for a signed-in Microsoft account that owns Minecraft: Java
 Edition. There is no offline mode.
 
+## Mod loaders
+
+- **Fabric** and **Quilt** come from their official metadata servers. New instances get
+  Fabric API, and Quilt instances can install Fabric mods as well as Quilt ones.
+- **NeoForge** and **Forge** need their official installer to patch the game. Hearth
+  downloads it and runs it in the background once per loader version, then reuses the result.
+
+Installing a mod also installs every mod it requires. Hearth refuses a mod that says it
+can't run alongside one you already have, and removing a mod also removes the dependencies
+nothing else needs.
+
 ## Where things live
 
-Everything is in `~/Library/Application Support/Hearth/`:
+Everything is in `~/Library/Application Support/Hearth/` on a Mac and
+`%APPDATA%\Hearth\` on Windows:
 
 ```
-store/       shared game files, libraries, assets, Java runtimes and mod files
+store/       shared game files, libraries, assets, Java runtimes, loaders and mod files
 instances/   one folder per instance; minecraft/ inside is the game directory
-settings.json, accounts.json (tokens encrypted with the macOS Keychain)
+settings.json, accounts.json (tokens encrypted with the Keychain on macOS, DPAPI on Windows)
 ```
 
 Deleting an instance moves its folder to the Trash.

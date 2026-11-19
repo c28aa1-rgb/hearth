@@ -2,7 +2,7 @@ import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { HearthEvent, InstanceView } from '@shared/types'
 import { listAccounts, removeAccount, signInMicrosoft } from './auth/accounts'
 import { AZURE_CLIENT_ID } from './auth/config'
-import { FABRIC_API } from './core/fabric'
+import { availableLoaders, FABRIC_API, modrinthLoaders, usesFabricApi } from './core/loaders'
 import {
   cloneInstance, createInstance, importImage, listInstances, readInstance, removeInstance,
   systemMemoryMb, toView, updateInstance
@@ -12,6 +12,7 @@ import { applyModUpdates, checkModUpdates, installMod, removeMod, setModEnabled 
 import { modDetails, searchMods } from './core/modrinth'
 import { getManifest, supportedVersions } from './core/mojang'
 import { getSettings, setSettings } from './core/settings'
+import { PLATFORM } from './core/platform'
 import { paths } from './paths'
 
 export function broadcast(event: HearthEvent) {
@@ -40,15 +41,17 @@ export function registerIpc(getWindow: () => BrowserWindow | undefined) {
     'app.info': () => ({
       microsoftConfigured: !!AZURE_CLIENT_ID,
       systemMemoryMb: systemMemoryMb(),
-      dataDir: paths.root
+      dataDir: paths.root,
+      platform: PLATFORM
     }),
 
     'versions.list': async () => supportedVersions(await getManifest(paths.versions)),
+    'versions.loaders': availableLoaders,
 
     'instances.list': listInstances,
     'instances.create': async (input: Parameters<typeof createInstance>[0]) => {
       const inst = await createInstance(input)
-      if (inst.loader === 'fabric') {
+      if (usesFabricApi(inst.loader)) {
         // Fabric API is a regular mod the user can remove. A failure here shouldn't block creation.
         await installMod(inst.id, FABRIC_API).catch(() => undefined)
       }
@@ -80,7 +83,8 @@ export function registerIpc(getWindow: () => BrowserWindow | undefined) {
 
     'mods.search': async (id: string, query: string, offset: number) => {
       const inst = await readInstance(id)
-      return searchMods(query, inst.mcVersion, 'fabric', offset)
+      if (inst.loader === 'vanilla') return { hits: [], total: 0 }
+      return searchMods(query, inst.mcVersion, modrinthLoaders(inst.loader), offset)
     },
     'mods.details': modDetails,
     'mods.install': async (id: string, projectId: string) => toView(await installMod(id, projectId)),

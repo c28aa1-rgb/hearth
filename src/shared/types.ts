@@ -1,6 +1,11 @@
 // The contract between the main process and the renderer.
 
-export type Loader = 'vanilla' | 'fabric'
+export type Loader = 'vanilla' | 'fabric' | 'quilt' | 'forge' | 'neoforge'
+
+/** Loaders that can run mods. */
+export type ModLoader = Exclude<Loader, 'vanilla'>
+
+export type Platform = 'darwin' | 'win32' | 'linux'
 
 export interface InstalledMod {
   projectId: string
@@ -13,6 +18,10 @@ export interface InstalledMod {
   enabled: boolean
   /** Added automatically because another mod needs it. */
   asDependency?: boolean
+  /** Project ids of the mods this one requires (recorded at install). */
+  dependsOn?: string[]
+  /** Project ids this mod says it can't run alongside. */
+  incompatibleWith?: string[]
 }
 
 export type IconChoice =
@@ -71,7 +80,7 @@ export interface Account {
   skinUrl?: string
 }
 
-export type LaunchPhase = 'preparing' | 'java' | 'game' | 'assets' | 'mods' | 'account' | 'starting'
+export type LaunchPhase = 'preparing' | 'java' | 'game' | 'assets' | 'loader' | 'mods' | 'account' | 'starting'
 
 export interface LaunchProgress {
   phase: LaunchPhase
@@ -148,6 +157,7 @@ export interface AppInfo {
   microsoftConfigured: boolean
   systemMemoryMb: number
   dataDir: string
+  platform: Platform
 }
 
 export type HearthEvent =
@@ -162,6 +172,8 @@ export interface HearthApi {
   }
   versions: {
     list(): Promise<McVersion[]>
+    /** Which mod loaders have a build for this Minecraft version. */
+    loaders(mcVersion: string): Promise<ModLoader[]>
   }
   instances: {
     list(): Promise<InstanceView[]>
@@ -197,4 +209,6 @@ export interface HearthApi {
     set(patch: Partial<Settings>): Promise<Settings>
   }
   on(listener: (event: HearthEvent) => void): () => void
+  /** The operating system Hearth is running on (known synchronously, for styling). */
+  platform: Platform
 }

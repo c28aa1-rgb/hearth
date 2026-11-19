@@ -3,7 +3,7 @@ import { Download, Search, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { InstanceView, ModSearchHit } from '@shared/types'
 import { api } from '../lib/api'
-import { formatCount } from '../lib/format'
+import { formatCount, loaderLabel } from '../lib/format'
 import { quick } from '../lib/motion'
 import { useStore } from '../store'
 import { Segmented, Spinner, Switch } from './controls'
@@ -30,10 +30,10 @@ export function ModsPanel({ instance }: { instance: InstanceView }) {
 
   useEffect(() => setDetail(null), [instance.id])
 
-  if (instance.loader !== 'fabric') {
+  if (instance.loader === 'vanilla') {
     return (
       <div className="panel-empty">
-        <p>Mods need Fabric. Create a Fabric instance to add mods from Modrinth.</p>
+        <p>This instance has no mod loader. Create a Fabric, Quilt, NeoForge or Forge instance to add mods from Modrinth.</p>
       </div>
     )
   }
@@ -193,7 +193,7 @@ function Browse({ instance, onOpen }: { instance: InstanceView; onOpen: (p: ModP
         <Search size={15} className="muted" />
         <input
           className="input"
-          placeholder={`Search Fabric mods for ${instance.mcVersion}`}
+          placeholder={`Search ${loaderLabel(instance.loader)} mods for ${instance.mcVersion}`}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoFocus
@@ -236,7 +236,7 @@ function Browse({ instance, onOpen }: { instance: InstanceView; onOpen: (p: ModP
         </AnimatePresence>
       </ul>
       {!loading && hits.length === 0 && (
-        <div className="panel-empty"><p>No Fabric mods for {instance.mcVersion} match “{query}”.</p></div>
+        <div className="panel-empty"><p>No {loaderLabel(instance.loader)} mods for {instance.mcVersion} match “{query}”.</p></div>
       )}
       {hits.length < total && hits.length > 0 && (
         <div className="more">

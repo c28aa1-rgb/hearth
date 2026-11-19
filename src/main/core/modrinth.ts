@@ -22,6 +22,7 @@ export interface MrVersion {
   project_id: string
   version_number: string
   version_type: 'release' | 'beta' | 'alpha'
+  loaders?: string[]
   files: MrFile[]
   dependencies: MrDependency[]
 }
@@ -90,12 +91,13 @@ export async function resolveInstall(
   return result
 }
 
-export function modrinthSource(mcVersion: string, loader: string): ModSource & { projects(ids: string[]): Promise<MrProject[]> } {
+/** `loaders` are Modrinth loader tags; a Quilt instance passes ["quilt", "fabric"]. */
+export function modrinthSource(mcVersion: string, loaders: string[]): ModSource & { projects(ids: string[]): Promise<MrProject[]> } {
   const titles = new Map<string, string>()
   return {
     async compatibleVersion(project) {
       const q = new URLSearchParams({
-        loaders: JSON.stringify([loader]),
+        loaders: JSON.stringify(loaders),
         game_versions: JSON.stringify([mcVersion])
       })
       const versions = await getJson<MrVersion[]>(`${API}/project/${encodeURIComponent(project)}/version?${q}`)
@@ -131,8 +133,9 @@ interface SearchResponse {
   total_hits: number
 }
 
-export async function searchMods(query: string, mcVersion: string, loader: string, offset: number): Promise<ModSearchResult> {
-  const facets = [['project_type:mod'], [`categories:${loader}`], [`versions:${mcVersion}`]]
+export async function searchMods(query: string, mcVersion: string, loaders: string[], offset: number): Promise<ModSearchResult> {
+  // Facets in one inner list are OR-ed: a Quilt instance sees Quilt and Fabric mods.
+  const facets = [['project_type:mod'], loaders.map((l) => `categories:${l}`), [`versions:${mcVersion}`]]
   const q = new URLSearchParams({
     query,
     facets: JSON.stringify(facets),
@@ -204,12 +207,12 @@ export async function modDetails(projectId: string): Promise<ModDetails> {
 }
 
 /** Newest compatible version for each file hash. */
-export async function latestVersions(sha1s: string[], mcVersion: string, loader: string): Promise<Record<string, MrVersion>> {
+export async function latestVersions(sha1s: string[], mcVersion: string, loaders: string[]): Promise<Record<string, MrVersion>> {
   if (!sha1s.length) return {}
   return postJson<Record<string, MrVersion>>(`${API}/version_files/update`, {
     hashes: sha1s,
     algorithm: 'sha1',
-    loaders: [loader],
+    loaders,
     game_versions: [mcVersion]
   })
 }

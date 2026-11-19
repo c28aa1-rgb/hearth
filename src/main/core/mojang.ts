@@ -121,7 +121,11 @@ export function resolveLibraries(version: VersionJson, librariesDir: string, env
     const artifact = lib.downloads?.artifact
     let rel: string
     let task: Omit<DownloadTask, 'path'>
-    if (artifact?.url) {
+    if (artifact && !artifact.url) {
+      // Built locally by a loader installer (Forge/NeoForge): on the classpath, nothing to download.
+      classpath.push(join(librariesDir, artifact.path ?? mavenPath(lib.name)))
+      continue
+    } else if (artifact?.url) {
       rel = artifact.path ?? mavenPath(lib.name)
       task = { url: artifact.url, sha1: artifact.sha1, size: artifact.size }
     } else if (lib.url) {

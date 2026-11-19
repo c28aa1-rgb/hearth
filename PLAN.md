@@ -1,7 +1,7 @@
 # Hearth — plan
 
-A small, good-looking Minecraft: Java Edition launcher for Apple Silicon Macs, with
-instances and Fabric mods from Modrinth. Anyone can run it from source:
+A small, good-looking Minecraft: Java Edition launcher for macOS and Windows, with
+instances and mods from Modrinth for Fabric, Quilt, NeoForge and Forge. Anyone can run it from source:
 
 ```bash
 git clone https://github.com/c28aa1-rgb/hearth.git && cd hearth && npm install && npm run dev
@@ -15,12 +15,12 @@ Node is the only thing a person needs installed. Hearth downloads Java and Minec
 
 | Area | Decision |
 |---|---|
-| Platform | macOS only, Apple Silicon (arm64) only |
+| Platform | macOS (Apple Silicon first) and Windows. Platform details (rules, Java runtime, classpath separator, window frame) live in `core/platform.ts` |
 | Distribution | Run from source with `npm run dev`. Public GitHub repo, MIT license. No signing needed (locally built apps are not quarantined) |
 | Stack | Electron + React + TypeScript + Vite (`electron-vite`). Motion for animation. Zustand for UI state. No native npm modules |
 | Minecraft versions | 1.19 and newer (first versions with native arm64 natives). Releases by default, snapshots behind a toggle |
-| Loaders | Vanilla and Fabric. Fabric API is added to every new Fabric instance |
-| Mods | Modrinth only. Search, install with required dependencies, enable/disable, remove, update badges (never auto-update) |
+| Loaders | Vanilla, Fabric, Quilt, NeoForge and Forge. Fabric/Quilt profiles come from their meta servers; NeoForge/Forge run their official installer headless (`--installClient`) against the shared store. Fabric API is added to new Fabric and Quilt instances |
+| Mods | Modrinth only. Search, install with required dependencies, refuse declared incompatibilities, remove unused dependencies with their mod, enable/disable, update badges (never auto-update) |
 | Accounts | Microsoft sign-in in a pop-up window (auth code + PKCE), several accounts, tokens encrypted with `safeStorage` (Keychain). No offline accounts: playing always needs a Microsoft account that owns the game |
 | Java | Downloaded automatically from Mojang's Java runtime manifest (arm64 builds), shared across instances |
 | Storage | One shared store for libraries, assets, game jars, Java and mod files. Instances get copy-on-write clones (APFS) of mod files, so duplicates cost no disk space |
@@ -29,14 +29,14 @@ Node is the only thing a person needs installed. Hearth downloads Java and Minec
 | Telemetry | None |
 
 ### Not in v1
-`.mrpack` import/export, resource/shader pack managers, Quilt, Forge/NeoForge, CurseForge,
-versions older than 1.19, skins, server list, light theme, other platforms.
+`.mrpack` import/export, resource/shader pack managers, CurseForge, versions older than
+1.19, skins, server list, light theme, Linux.
 
-### Action item for the owner
-Register an Azure app (public client, personal Microsoft account is fine) and submit the
-Minecraft API review form at <https://aka.ms/mce-reviewappid>. Until it is approved,
-`api.minecraftservices.com` rejects the app with 403 "Invalid app registration". Put the
-client ID in `src/main/auth/config.ts`. A public client ID is safe to commit.
+### Azure app
+Hearth's Azure app (public client, personal Microsoft accounts) was approved for the
+Minecraft API on 2026-11-19. Forks with their own app must submit the review form at
+<https://aka.ms/mce-reviewappid>; until approval, `api.minecraftservices.com` rejects the
+app with 403 "Invalid app registration". The client ID is in `src/main/auth/config.ts`.
 
 ---
 
@@ -68,7 +68,9 @@ src/
       maven.ts          maven coordinate -> path
       mojang.ts         version manifest, version JSON, client jar, libraries, assets
       java.ts           Mojang runtime manifest -> download + chmod + symlinks
-      fabric.ts         Fabric meta: loader list, profile JSON, merge onto vanilla
+      platform.ts       macOS/Windows differences: rule env, Java runtime key + binary, classpath separator
+      loaders.ts        Fabric/Quilt meta, Forge/NeoForge version lists + headless installer
+      mod-graph.ts      required/incompatible mods, unused-dependency cleanup
       modrinth.ts       search, versions, dependency resolution, update check
       instances.ts      instance.json CRUD, clone, delete, screenshots
       launch.ts         install pipeline + argument building + spawn + log streaming
@@ -220,10 +222,10 @@ Play again.").
 
 ## 5. Milestones
 
-Status as of 2026-11-13: M0–M4 and most of M6 are built and checked in a real run
-(1.21.4 + Fabric + Sodium + Iris, 26.3 vanilla on Java 25, 1.20.1 on Java 17, crash
-recovery). M5 code is written but can't be tested until Microsoft approves the Azure app.
-The device-code sign-in fallback is not built yet.
+Status as of 2026-11-19: M0–M8 are built. Checked in real runs on an Apple Silicon Mac:
+1.21.4 + Fabric + Sodium + Iris, 26.3 vanilla on Java 25, crash recovery, Microsoft sign-in,
+NeoForge 1.21.1 with Supplementaries (and its Moonlight Lib dependency), Forge 1.21.1 and
+1.20.1, Quilt 1.21.1 with Sodium. M9 (Windows) is written but hasn't been run on a Windows PC yet.
 
 | # | Milestone | Done when |
 |---|---|---|
@@ -234,6 +236,10 @@ The device-code sign-in fallback is not built yet.
 | M4 | Modrinth browser, dependencies, enable/disable, updates | Sodium + Iris install and launch |
 | M5 | Microsoft accounts | Sign-in works once the Azure app is approved |
 | M6 | Polish | Screenshot backdrops, icons, crash return, Reduce motion, README |
+| M7 | Quilt | A Quilt instance runs Fabric mods |
+| M8 | NeoForge and Forge | Both install headless and launch with mods |
+| M9 | Windows | `npm run dev` on Windows launches a game |
 
-Tests (Vitest) cover the pure logic: rule evaluation, maven paths, argument building,
-Fabric merge, dependency resolution.
+Tests (Vitest) cover the pure logic: rule evaluation (macOS and Windows), maven paths,
+argument building, loader profile merge, NeoForge version numbering, dependency resolution,
+incompatibilities and unused-dependency cleanup.

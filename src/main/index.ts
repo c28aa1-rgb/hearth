@@ -1,4 +1,4 @@
-import { join, normalize } from 'node:path'
+import { join, normalize, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { app, BrowserWindow, net, protocol, shell } from 'electron'
 import { runner } from './core/launch'
@@ -25,11 +25,21 @@ function createWindow() {
     minHeight: 600,
     show: false,
     title: 'Hearth',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 18, y: 18 },
-    vibrancy: 'sidebar',
-    visualEffectState: 'followWindow',
-    backgroundColor: '#00000000',
+    ...(process.platform === 'darwin'
+      ? {
+        titleBarStyle: 'hiddenInset' as const,
+        trafficLightPosition: { x: 18, y: 18 },
+        vibrancy: 'sidebar' as const,
+        visualEffectState: 'followWindow' as const,
+        backgroundColor: '#00000000'
+      }
+      : {
+        // Windows: frameless look with the system's own window buttons drawn over the hero.
+        titleBarStyle: 'hidden' as const,
+        titleBarOverlay: { color: '#00000000', symbolColor: '#EEE5D8', height: 52 },
+        backgroundColor: '#1B1612',
+        autoHideMenuBar: true
+      }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -61,7 +71,7 @@ app.whenReady().then(() => {
     const url = new URL(req.url)
     const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '')
     const file = normalize(join(paths.root, rel))
-    if (url.host !== 'data' || !file.startsWith(paths.root + '/')) return new Response('Not found', { status: 404 })
+    if (url.host !== 'data' || !file.startsWith(normalize(paths.root) + sep)) return new Response('Not found', { status: 404 })
     return net.fetch(pathToFileURL(file).toString())
   })
 

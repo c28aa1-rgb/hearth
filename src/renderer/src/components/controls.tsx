@@ -4,7 +4,7 @@ import { quick, spring } from '../lib/motion'
 
 export function Segmented<T extends string>({ value, options, onChange, label }: {
   value: T
-  options: { value: T; label: string }[]
+  options: { value: T; label: string; disabled?: boolean; title?: string }[]
   onChange: (value: T) => void
   label: string
 }) {
@@ -12,7 +12,14 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
   return (
     <div className="segmented" role="group" aria-label={label}>
       {options.map((o) => (
-        <button key={o.value} aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
+        <button
+          type="button"
+          key={o.value}
+          aria-pressed={o.value === value}
+          aria-disabled={o.disabled || undefined}
+          title={o.title}
+          onClick={() => { if (!o.disabled) onChange(o.value) }}
+        >
           {o.value === value && <motion.div layoutId={`seg-${id}`} className="seg-pill" transition={spring} />}
           <span>{o.label}</span>
         </button>

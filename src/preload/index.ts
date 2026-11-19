@@ -11,7 +11,7 @@ const call = (name: string) => async (...args: unknown[]) => {
 
 /** Build the nested API object from "group.method" names. */
 const names = [
-  'app.info', 'versions.list',
+  'app.info', 'versions.list', 'versions.loaders',
   'instances.list', 'instances.create', 'instances.update', 'instances.clone', 'instances.remove',
   'instances.openFolder', 'instances.pickImage',
   'launch.start', 'launch.stop', 'launch.states', 'launch.logs',
@@ -21,6 +21,7 @@ const names = [
 ]
 
 const api: Record<string, unknown> = {
+  platform: process.platform === 'win32' ? 'win32' : process.platform === 'darwin' ? 'darwin' : 'linux',
   on(listener: (event: HearthEvent) => void) {
     const fn = (_: unknown, event: HearthEvent) => listener(event)
     ipcRenderer.on('hearth:event', fn)

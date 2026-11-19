@@ -1,11 +1,11 @@
 import { randomBytes } from 'node:crypto'
 import { constants } from 'node:fs'
 import { copyFile, cp, mkdir, readdir, rm, stat } from 'node:fs/promises'
-import { extname, join, relative } from 'node:path'
+import { extname, join, relative, sep } from 'node:path'
 import { shell } from 'electron'
 import type { Instance, InstanceView, NewInstanceInput } from '@shared/types'
 import { paths } from '../paths'
-import { latestFabricLoader } from './fabric'
+import { requireLoaderVersion } from './loaders'
 import { readJson, writeJson } from './jsonfile'
 import { autoMemoryMb } from './memory'
 import os from 'node:os'
@@ -17,7 +17,7 @@ const instanceFile = (id: string) => join(paths.instance(id), 'instance.json')
 
 /** URL the renderer can load through the hearth:// protocol. */
 export function fileUrl(absPath: string, version?: number): string {
-  const rel = relative(paths.root, absPath).split('/').map(encodeURIComponent).join('/')
+  const rel = relative(paths.root, absPath).split(sep).map(encodeURIComponent).join('/')
   return `hearth://data/${rel}${version ? `?v=${Math.round(version)}` : ''}`
 }
 
@@ -94,7 +94,7 @@ export async function createInstance(input: NewInstanceInput): Promise<Instance>
     name,
     mcVersion: input.mcVersion,
     loader: input.loader,
-    loaderVersion: input.loader === 'fabric' ? await latestFabricLoader(input.mcVersion) : undefined,
+    loaderVersion: input.loader === 'vanilla' ? undefined : await requireLoaderVersion(input.loader, input.mcVersion),
     memoryMb: null,
     icon: { kind: 'auto' },
     backdrop: { kind: 'auto' },

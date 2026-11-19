@@ -12,6 +12,8 @@ export interface LaunchContext {
   player: { name: string; uuid: string; accessToken: string; userType: 'msa'; xuid?: string }
   launcherName: string
   launcherVersion: string
+  /** ":" on macOS, ";" on Windows. */
+  classpathSeparator: string
 }
 
 function expand(args: Argument[] | undefined, env: RuleEnv): string[] {
@@ -45,8 +47,8 @@ export function buildLaunchArgs(version: VersionJson, ctx: LaunchContext, env: R
     assets_index_name: version.assetIndex?.id ?? version.assets ?? '',
     natives_directory: ctx.nativesDir,
     library_directory: ctx.librariesDir,
-    classpath: ctx.classpath.join(':'),
-    classpath_separator: ':',
+    classpath: ctx.classpath.join(ctx.classpathSeparator),
+    classpath_separator: ctx.classpathSeparator,
     launcher_name: ctx.launcherName,
     launcher_version: ctx.launcherVersion
   }
