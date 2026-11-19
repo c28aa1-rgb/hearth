@@ -1,6 +1,8 @@
 import { join, normalize, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { app, BrowserWindow, net, protocol, shell } from 'electron'
+import { app, BrowserWindow, nativeImage, net, protocol, shell } from 'electron'
+import macIcon from '../../resources/icon.png?asset'
+import windowsIcon from '../../resources/icon-windows.png?asset'
 import { runner } from './core/launch'
 import { getSettings } from './core/settings'
 import { broadcast, registerIpc } from './ipc'
@@ -25,6 +27,7 @@ function createWindow() {
     minHeight: 600,
     show: false,
     title: 'Hearth',
+    icon: process.platform === 'win32' ? windowsIcon : undefined,
     ...(process.platform === 'darwin'
       ? {
         titleBarStyle: 'hiddenInset' as const,
@@ -74,6 +77,9 @@ app.whenReady().then(() => {
     if (url.host !== 'data' || !file.startsWith(normalize(paths.root) + sep)) return new Response('Not found', { status: 404 })
     return net.fetch(pathToFileURL(file).toString())
   })
+
+  // The packaged app gets its icon from the bundle; `npm run dev` would otherwise show Electron's.
+  if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(nativeImage.createFromPath(macIcon))
 
   registerIpc(() => win)
   runner.on('state', async (state) => {

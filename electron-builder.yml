@@ -1,0 +1,54 @@
+# Packaging for the downloadable apps: `npm run dist:mac` and `npm run dist:win`.
+appId: io.github.c28aa1-rgb.hearth
+productName: Hearth
+copyright: Copyright © 2026 Hearth contributors
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**/*
+  - resources/**
+  - package.json
+artifactName: Hearth-${version}-${os}-${arch}.${ext}
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  category: public.app-category.games
+  icon: build/icon.icns
+  # No paid Apple Developer ID: sign ad hoc so Apple Silicon will run it. macOS asks
+  # once before the first launch (see the README).
+  identity: '-'
+  hardenedRuntime: false
+  notarize: false
+dmg:
+  title: Hearth ${version}
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 150
+      y: 190
+    - x: 390
+      y: 190
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Hearth
+  artifactName: Hearth-${version}-windows-setup.${ext}
+  uninstallDisplayName: Hearth
+
+npmRebuild: false
+publish: null

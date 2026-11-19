@@ -1,10 +1,36 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
+    <img src="docs/logo-light.png" alt="Hearth" width="420">
+  </picture>
+</p>
+
 # Hearth
 
 A small Minecraft: Java Edition launcher for macOS and Windows. Hearth manages separate
 instances (each with its own version, mods and worlds) and installs mods from Modrinth
 for Fabric, Quilt, NeoForge and Forge, along with the other mods they need.
 
-## Run it
+## Download
+
+Get the latest version from the [releases page](https://github.com/c28aa1-rgb/hearth/releases/latest):
+
+| Your computer | File |
+|---|---|
+| Mac with Apple Silicon (M1 or newer) | `Hearth-…-mac-arm64.dmg` |
+| Mac with an Intel chip | `Hearth-…-mac-x64.dmg` |
+| Windows 10 or 11 | `Hearth-…-windows-setup.exe` |
+
+Hearth isn't signed with a paid Apple or Microsoft developer certificate yet, so both
+systems ask once before the first launch:
+
+- **Mac:** open the .dmg and drag Hearth into Applications, then open it. macOS says it
+  can't verify the app. Click **Done**, open **System Settings → Privacy & Security**,
+  scroll down and click **Open Anyway** next to Hearth, then confirm. You only do this once.
+- **Windows:** the installer may show "Windows protected your PC". Click **More info**,
+  then **Run anyway**.
+
+## Run from source
 
 You need [Node.js](https://nodejs.org) 22.12 or newer (and [Git](https://git-scm.com) to
 clone the repo). Nothing else: Hearth downloads Java, Minecraft and the mod loaders by itself.
@@ -72,11 +98,19 @@ Deleting an instance moves its folder to the Trash.
 | `npm test` | Unit tests for the launcher core |
 | `npm run typecheck` | TypeScript check |
 | `npm run build` | Production build into `out/` |
+| `npm run dist:mac` | Mac apps (.dmg for Apple Silicon and Intel) into `dist/` |
+| `npm run dist:win` | Windows installer (.exe) into `dist/`; build it on Windows |
 
 Environment variables for development:
 
 - `HEARTH_DATA_DIR=/some/folder` uses a throwaway data folder instead of the real one.
 - `HEARTH_DEBUG_PORT=9333` opens the Chrome DevTools protocol on that port.
+
+Publishing a GitHub release runs `.github/workflows/release.yml`, which builds the Mac and
+Windows apps and attaches them to the release.
+
+The icon is drawn by `scripts/icon.py` (the sources are `build/icon.svg` and
+`build/icon-windows.svg`).
 
 `PLAN.md` has the design decisions, architecture and milestones.
 

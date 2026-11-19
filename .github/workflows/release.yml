@@ -1,0 +1,49 @@
+# Builds the downloadable apps and attaches them to a GitHub release.
+# Runs when a release is published, or by hand for an existing tag.
+name: Build apps
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and upload to (e.g. v0.1.0)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: dist:mac
+          - os: windows-latest
+            script: dist:win
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run ${{ matrix.script }}
+      - name: Attach to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.dmg dist/*-setup.exe)
+          gh release upload "$TAG" "${files[@]}" --clobber

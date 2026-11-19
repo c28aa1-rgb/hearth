@@ -11,32 +11,35 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dist:mac": "electron-vite build && electron-builder --mac --publish never",
+    "dist:win": "electron-vite build && electron-builder --win --publish never"
   },
   "engines": {
     "node": ">=22.12"
   },
-  "dependencies": {
+  "devDependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
     "dompurify": "^3.4.17",
+    "electron": "^45.3.2",
+    "electron-builder": "26.18.1",
+    "electron-vite": "^6.0.0",
     "lucide-react": "^1.72.0",
     "marked": "^18.2.0",
     "motion": "^14.14.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "zustand": "^5.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^26.6.6",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.3.0",
-    "electron": "^45.3.2",
-    "electron-vite": "^6.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
-    "vitest": "^5.1.0"
-  }
+    "vitest": "^5.1.0",
+    "zustand": "^5.1.0"
+  },
+  "author": "Hearth contributors",
+  "homepage": "https://github.com/c28aa1-rgb/hearth"
 }
